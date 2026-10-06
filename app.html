@@ -1,1 +1,171 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dovetail - tail and pin layout calculator</title>
+<style>
+:root{--bg:#131109;--panel:#1f1b10;--line:#453d22;--fg:#f3ecd9;--dim:#b3a67f;--acc:#d9a441}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.top{display:flex;align-items:baseline;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);background:var(--panel)}
+.top b{font-size:19px}.top b span{color:var(--acc)}
+.top small{color:var(--dim)}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+.cols{display:grid;grid-template-columns:320px 1fr;gap:16px}
+@media(max-width:800px){.cols{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:12.5px;color:var(--dim);margin:10px 0 3px}
+input{width:100%;background:#171307;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:8px 10px;font-size:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{background:#2b2512;border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+button.on{border-color:var(--acc);color:var(--acc)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.warn{background:#2d2306;border:1px solid #9e6a03;color:#e3b341;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13.5px}
+.warn ul{margin:6px 0 0;padding-left:18px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--dim);text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:4px 8px;border-bottom:1px solid #2a2415;font-family:ui-monospace,Menlo,Consolas,monospace}
+h3{margin:0 0 8px;font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+footer{color:var(--dim);font-size:13px;text-align:center;padding:18px}
+footer a{color:var(--acc);text-decoration:none}
+svg text{font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="top"><b>Dove<span>tail</span></b><small>tail and pin layout for through dovetails - every mark from the left edge</small></div>
+<div class="wrap">
+<div class="cols">
+<div>
+  <div class="card">
+    <div class="row" id="unitrow">
+      <button data-u="mm" class="on">millimeters</button>
+      <button data-u="in">inches</button>
+    </div>
+    <div class="pair">
+      <div><label>board width</label><input type="number" id="bw" value="150" step="any"></div>
+      <div><label>board thickness</label><input type="number" id="bt" value="12" step="any"></div>
+    </div>
+    <div class="pair">
+      <div><label>tails</label><input type="number" id="tails" value="4" step="1" min="1"></div>
+      <div><label>pin width</label><input type="number" id="pin" value="6" step="any" min="0.1"></div>
+    </div>
+    <label>slope ratio (1:N - 6 softwood, 8 hardwood)</label>
+    <input type="number" id="ratio" value="8" step="1" min="4" max="10">
+  </div>
+  <div class="card">
+    <h3>layout</h3>
+    <table>
+      <tr><th>half-pin (each edge)</th><td id="thp"></td></tr>
+      <tr><th>tail base (wide face)</th><td id="ttb"></td></tr>
+      <tr><th>tail top (narrow face)</th><td id="ttt"></td></tr>
+      <tr><th>pin</th><td id="tp"></td></tr>
+    </table>
+  </div>
+</div>
+<div>
+  <div id="warnbox"></div>
+  <div class="card">
+    <h3>the board, wide face up</h3>
+    <svg id="viz" viewBox="0 0 620 330" style="width:100%;height:auto;display:block"></svg>
+  </div>
+  <div class="card">
+    <h3>gauge marks from the left edge</h3>
+    <table><thead><tr><th>#</th><th>mark at</th><th>piece</th></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+</div>
+</div>
+</div>
+<footer>Cross-checked against an independent Python implementation (136 checks). <a href="index.html">about</a></footer>
+<script src="engine.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let unit='mm';
+const DEFAULTS={mm:{bw:150,bt:12,pin:6},in:{bw:6,bt:0.5,pin:0.25}};
+function read(){
+  return {unit:unit,boardW:+$('bw').value,boardT:+$('bt').value,tails:+$('tails').value,pinW:+$('pin').value,ratio:+$('ratio').value};
+}
+function render(){
+  const o=read();
+  const r=Dovetail.compute(o);
+  const f=v=>Dovetail.fmt(v,unit)+(unit==='in'?' in':' mm');
+  $('thp').textContent=f(r.halfPin);
+  $('ttb').textContent=f(r.tailBase);
+  $('ttt').textContent=f(r.tailTop);
+  $('tp').textContent=f(r.pin);
+  $('warnbox').innerHTML=r.warnings.length?'<div class="warn">heads-up:<ul>'+r.warnings.map(w=>'<li>'+w+'</li>').join('')+'</ul></div>':'';
+  draw(o,r);
+  const pieces=[];
+  for(let i=1;i<r.marks.length;i++){
+    const w=r.marks[i]-r.marks[i-1];
+    let kind;
+    if(i===1||i===r.marks.length-1)kind='half-pin';
+    else kind=(i%2===0)?'tail':'pin';
+    pieces.push({a:r.marks[i-1],b:r.marks[i],w:w,kind:kind});
+  }
+  $('rows').innerHTML=r.marks.map((m,i)=>{
+    const k=i===0?'start':pieces[i-1].kind+' ends';
+    return '<tr><td>'+i+'</td><td>'+Dovetail.fmt(m,unit)+'</td><td>'+k+'</td></tr>';
+  }).join('');
+}
+function draw(o,r){
+  const svg=$('viz'),NS='http://www.w3.org/2000/svg';
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+  const W=Dovetail.toMm(o.boardW,unit),th=Dovetail.toMm(o.boardT,unit);
+  const pad=60,VW=620,VH=330;
+  const sc=Math.min((VW-2*pad)/W,(VH-140)/Math.max(th*3,W*0.25));
+  const bh=Math.min(120,Math.max(50,th*3*sc));
+  const ox=(VW-W*sc)/2,oy=70;
+  function line(x1,y1,x2,y2,color,sw){
+    const e=document.createElementNS(NS,'line');
+    e.setAttribute('x1',x1);e.setAttribute('y1',y1);e.setAttribute('x2',x2);e.setAttribute('y2',y2);
+    e.setAttribute('stroke',color);e.setAttribute('stroke-width',sw||1);
+    svg.appendChild(e);
+  }
+  function rect(x,y,w,h,fill,stroke,sw){
+    const e=document.createElementNS(NS,'rect');
+    e.setAttribute('x',x);e.setAttribute('y',y);e.setAttribute('width',Math.max(0,w));e.setAttribute('height',Math.max(0,h));
+    e.setAttribute('fill',fill);if(stroke){e.setAttribute('stroke',stroke);e.setAttribute('stroke-width',sw||1);}
+    svg.appendChild(e);
+  }
+  function text(x,y,t,anchor,color,size){
+    const e=document.createElementNS(NS,'text');
+    e.setAttribute('x',x);e.setAttribute('y',y);e.setAttribute('text-anchor',anchor||'middle');
+    e.setAttribute('fill',color||'#b3a67f');e.setAttribute('font-size',size||11);e.textContent=t;
+    svg.appendChild(e);
+  }
+  rect(ox,oy,W*sc,bh,'#26200f','#d9a441',2);
+  // tails trapezoids from marks: slope through thickness shown on the face
+  const N=o.ratio;
+  const drop=th/N*sc; // horizontal run of the slope on this face
+  for(let i=1;i<r.marks.length-1;i++){
+    if(i%2===0){ // tail band between mark i-1 and i
+      const x1=ox+r.marks[i-1]*sc,x2=ox+r.marks[i]*sc;
+      const poly=document.createElementNS(NS,'polygon');
+      const pts=(x1+drop)+','+oy+' '+(x2-drop)+','+oy+' '+x2+','+(oy+bh)+' '+x1+','+(oy+bh);
+      poly.setAttribute('points',pts);
+      poly.setAttribute('fill','#3a3117');
+      poly.setAttribute('stroke','#d9a441');poly.setAttribute('stroke-width','1');
+      svg.appendChild(poly);
+    }
+  }
+  // boundary marks + labels
+  for(let i=0;i<r.marks.length;i++){
+    const x=ox+r.marks[i]*sc;
+    line(x,oy,x,oy-8,'#8a7a48',1);
+    text(x,oy-14,Dovetail.fmt(r.marks[i],unit),'middle','#8a7a48',9);
+  }
+  text(ox+W*sc/2,oy+bh+30,'board '+Dovetail.fmt(W,unit)+' wide, '+Dovetail.fmt(th,unit)+' thick, slope 1:'+N,'middle','#b3a67f',12);
+}
+document.querySelectorAll('#unitrow button').forEach(b=>b.onclick=()=>{
+  unit=b.dataset.u;
+  document.querySelectorAll('#unitrow button').forEach(x=>x.classList.toggle('on',x===b));
+  const d=DEFAULTS[unit];
+  $('bw').value=d.bw;$('bt').value=d.bt;$('pin').value=d.pin;
+  render();
+});
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',render));
+render();
+</script>
+</body>
+</html>
