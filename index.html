@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dovetail - exact tail and pin layout for hand-cut joints</title>
+<meta name="description" content="Free dovetail layout calculator: board width, tail count and pin size in, every gauge mark from the left edge out - with the slope ratio worked through the stock thickness.">
+<style>
+:root{--bg:#131109;--panel:#1f1b10;--line:#453d22;--fg:#f3ecd9;--dim:#b3a67f;--acc:#d9a441}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:0 22px}
+header.hero{padding:70px 0 40px;text-align:center}
+h1{font-size:44px;margin:0 0 10px}
+h1 span{color:var(--acc)}
+.tag{font-size:18px;color:var(--dim);max-width:620px;margin:0 auto 26px}
+a.btn{display:inline-block;background:var(--acc);color:#241c05;font-weight:700;padding:13px 30px;border-radius:10px;text-decoration:none;font-size:16px}
+a.btn:hover{filter:brightness(1.1)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:36px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card h3{margin:0 0 6px;font-size:16px}
+.card p{margin:0;color:var(--dim);font-size:14px}
+.sec{padding:26px 0}
+.sec h2{font-size:24px;margin:0 0 10px}
+.sec p,ul{color:var(--dim)}
+li{margin:4px 0}
+code{background:#171307;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px}
+footer{border-top:1px solid var(--line);margin-top:30px;padding:20px 0;color:var(--dim);font-size:13px;text-align:center}
+footer a{color:var(--acc);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <h1>Dove<span>tail</span></h1>
+  <p class="tag">Half-pins at the edges, tails in between, and every gauge mark measured from the left edge - with the 1:8 slope worked through your actual stock thickness so the narrow face doesn't go negative.</p>
+  <a class="btn" href="app.html">Open the calculator</a>
+</header>
+<div class="grid">
+  <div class="card"><h3>Every mark, one list</h3><p>Half-pin, tail, pin, tail... each boundary as a distance from the left edge. Set your marking gauge, scribe, move on.</p></div>
+  <div class="card"><h3>Slope through thickness</h3><p>The 1:N ratio runs through the stock. Tail base and tail top are both computed, so you see if the slope eats the tail before you cut.</p></div>
+  <div class="card"><h3>mm or inches</h3><p>Work in whichever your gauges read. Millimeters to hundredths, inches to thousandths.</p></div>
+  <div class="card"><h3>Fragility alarms</h3><p>Too many tails, pins under 3mm, slopes that hollow the tail out - flagged while the board is still whole.</p></div>
+</div>
+<section class="sec">
+  <h2>The layout rule</h2>
+  <p>Through dovetails start and end with a half-pin so the joint has no weak end grain at the edges. Board width = two half-pins + every tail + every pin between them. Pick the pin size and tail count; the tails take what's left. Ratio 1:6 for softwood, 1:8 for hardwood is the usual guidance - both work here.</p>
+</section>
+<section class="sec">
+  <h2>Checked by an independent implementation</h2>
+  <p>The layout engine (<code>engine.js</code>) runs in Node against a second implementation in Python (<code>tests/build_corpus.py</code>). Both must agree on every half-pin, tail width, tail top and boundary mark across seven scenarios. 136 checks pass (<code>node tests/run_tests.js</code>).</p>
+</section>
+<footer>Built in the open by the app factory. <a href="https://github.com/iLanis-agent/dovetail">Source on GitHub</a> - <a href="app.html">open the app</a></footer>
+</div>
+</body>
+</html>
